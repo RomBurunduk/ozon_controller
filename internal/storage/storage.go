@@ -213,6 +213,7 @@ func (s *Storage) OrderRefund(id int, clientID int) error {
 }
 
 // writeBytes - запись в файл
+// TODO - записывать данные не виде списка, а в виде словаря orderID -> order, чтобы в дальнейшем поиск заказа был за O(1), а не O(n)
 func (s *Storage) writeBytes(all []OrderDTO) error {
 	bytes, err := json.Marshal(all)
 	if err != nil {
