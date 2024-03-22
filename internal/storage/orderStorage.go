@@ -18,10 +18,10 @@ type Storage struct {
 
 var ErrOrderNotFound = errors.New("нет такого заказа")
 
-const storageName = "storageName"
+const storageName = "orderStorage"
 
-// New - соеднинение с файлом данных
-func New() (Storage, error) {
+// NewOrderStorage - соеднинение с файлом данных
+func NewOrderStorage() (Storage, error) {
 	file, err := os.OpenFile(storageName, os.O_CREATE, fs.ModePerm)
 	if err != nil {
 		return Storage{}, err

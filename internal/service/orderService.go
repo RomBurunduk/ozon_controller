@@ -13,8 +13,8 @@ import (
 const DefaultInt = -1
 const DefaultStr = "-1"
 
-// storage - интерфейс, соединиящий storage.Storage и Service
-type storage interface {
+// orderInterface - интерфейс, соединиящий storage.Storage и OrderService
+type orderInterface interface {
 	OrderAccept(input model.OrderInput) error
 	List() ([]model.Order, error)
 	ChooseOrder(id int) (model.Order, error)
@@ -24,18 +24,18 @@ type storage interface {
 	OrderRefund(id int, clientID int) error
 }
 
-// Service - структура сервиса
-type Service struct {
-	s storage
+// OrderService - структура сервиса
+type OrderService struct {
+	s orderInterface
 }
 
-// New - создание сервиса
-func New(s storage) Service {
-	return Service{s: s}
+// NewOrderService - создание сервиса
+func NewOrderService(s orderInterface) OrderService {
+	return OrderService{s: s}
 }
 
 // OrderAccept - прием заказа в ПВЗ
-func (s Service) OrderAccept(input model.OrderInput) error {
+func (s OrderService) OrderAccept(input model.OrderInput) error {
 	err := CheckOrderId(input.OrderId)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func (s Service) OrderAccept(input model.OrderInput) error {
 }
 
 // ReturnOrder - возврат заказа курьеру
-func (s Service) ReturnOrder(id int) error {
+func (s OrderService) ReturnOrder(id int) error {
 	err := CheckOrderId(id)
 	if err != nil {
 		return err
@@ -78,7 +78,7 @@ func (s Service) ReturnOrder(id int) error {
 }
 
 // IssueOrder - получения заказа клиентом
-func (s Service) IssueOrder(idStr []string) error {
+func (s OrderService) IssueOrder(idStr []string) error {
 	ids := make([]int, 0, len(idStr))
 	for _, s := range idStr {
 		num, err := strconv.Atoi(s)
@@ -116,7 +116,7 @@ func (s Service) IssueOrder(idStr []string) error {
 }
 
 // Refunds - список возвратов
-func (s Service) Refunds(num int) ([]model.Order, error) {
+func (s OrderService) Refunds(num int) ([]model.Order, error) {
 	err := CheckNum(num)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (s Service) Refunds(num int) ([]model.Order, error) {
 }
 
 // RefundOrder - возврат заказа в ПВЗ
-func (s Service) RefundOrder(orderId int, clientId int) error {
+func (s OrderService) RefundOrder(orderId int, clientId int) error {
 	err := CheckOrderId(orderId)
 	if err != nil {
 		return err
@@ -149,7 +149,7 @@ func (s Service) RefundOrder(orderId int, clientId int) error {
 }
 
 // OrdersList - список всех актуальных заказов
-func (s Service) OrdersList(clientId int, num int) ([]model.Order, error) {
+func (s OrderService) OrdersList(clientId int, num int) ([]model.Order, error) {
 	err := CheckClientId(clientId)
 	if err != nil {
 		return nil, err
