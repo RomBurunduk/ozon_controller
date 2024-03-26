@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	"pvz_controller/internal/http"
 	"pvz_controller/internal/model"
 	"pvz_controller/internal/service"
 	"pvz_controller/internal/storage"
@@ -101,8 +102,8 @@ func main() {
 		listOut := make(chan string)
 		addOut := make(chan string)
 		defer func() {
-			defer close(addOut)
-			defer close(listOut)
+			close(addOut)
+			close(listOut)
 		}()
 		go func() {
 			fmt.Println("Добро пожаловать в ПВЗ Management System!")
@@ -140,7 +141,9 @@ func main() {
 		}()
 		<-exit
 		fmt.Println("Выход...")
-
+	case "web":
+		fmt.Println("web mode")
+		http.ServiceWithDb()
 	case "help":
 		fmt.Println("Команда задается через флаг -c")
 		fmt.Println("Доступные команды:")
