@@ -1,7 +1,7 @@
 package model
 
 type Pickups struct {
-	Name    string
-	Address string
-	Contact string
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Contact string `json:"contact"`
 }

@@ -1,3 +1,5 @@
 /.idea/
 /cmd/orderStorage
 /cmd/pickupStorage
+/cmd/server.crt
+/cmd/server.key
