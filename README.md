@@ -17,3 +17,9 @@ curl -u user1:password1 -X PUT -d '{"name":"pvz2_change", "address":"pvz2_change
 curl -u user1:password1 http://localhost:9000/pvz
 
 curl -u user1:password1 -X DELETE http://localhost:9000/pvz/1
+
+
+
+**Шаблон Стратегия ([Strategy Pattern](https://ru.wikipedia.org/wiki/Стратегия_(шаблон_проектирования)))**:
+    - Используется для обработки различных типов упаковки (`PackingStrategy`), что позволяет легко добавлять новые стратегии для других типов упаковки без изменения основного кода приложения.
+    - Каждая стратегия отвечает за проверку определенных условий и изменение стоимости заказа в соответствии с типом упаковки.

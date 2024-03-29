@@ -13,6 +13,12 @@ import (
 const DefaultInt = -1
 const DefaultStr = "-1"
 
+// PackingStrategy - интерфейс стратегии упаковки
+type PackingStrategy interface {
+	CheckWeight(order model.OrderInput) error
+	UpdateCost(order *model.Order)
+}
+
 // orderInterface - интерфейс, соединиящий storage.Storage и OrderService
 type orderInterface interface {
 	OrderAccept(input model.OrderInput) error
@@ -26,12 +32,20 @@ type orderInterface interface {
 
 // OrderService - структура сервиса
 type OrderService struct {
-	s orderInterface
+	s            orderInterface
+	packingStrat map[model.PackingType]PackingStrategy
 }
 
 // NewOrderService - создание сервиса
 func NewOrderService(s orderInterface) OrderService {
-	return OrderService{s: s}
+	return OrderService{
+		s: s,
+		packingStrat: map[model.PackingType]PackingStrategy{
+			model.Package: model.PackageStrategy{},
+			model.Box:     model.BoxStrategy{},
+			model.Film:    model.FilmStrategy{},
+		},
+	}
 }
 
 // OrderAccept - прием заказа в ПВЗ
@@ -47,6 +61,27 @@ func (s OrderService) OrderAccept(input model.OrderInput) error {
 	if CheckShelfTime(input.ShelfLife) {
 		return errors.New("срок хранения в прошлом")
 	}
+
+	strategy, ok := s.packingStrat[input.Packing]
+	if !ok {
+		return errors.New("неподдерживаемый тип упаковки")
+	}
+
+	err = strategy.CheckWeight(input)
+	if err != nil {
+		return err
+	}
+
+	order := &model.Order{
+		OrderId:     input.OrderId,
+		RecipientId: input.RecipientId,
+		ShelfLife:   input.ShelfLife,
+		Packing:     input.Packing,
+		Cost:        input.Cost,
+		Weight:      input.Weight,
+	}
+	strategy.UpdateCost(order)
+
 	_, err = s.s.ChooseOrder(input.OrderId)
 	if err != nil {
 		if errors.Is(err, storageFile.ErrOrderNotFound) {
