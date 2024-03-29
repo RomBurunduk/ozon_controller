@@ -26,7 +26,6 @@ func ServiceWithDb() {
 	defer database.GetPool(ctx).Close()
 
 	pvzRepo := postgresql.NewArticles(database)
-	//implementation := ServerService{repo: pvzRepo}
 	implementation := service.NewServerService(pvzRepo)
 
 	server := http.Server{
