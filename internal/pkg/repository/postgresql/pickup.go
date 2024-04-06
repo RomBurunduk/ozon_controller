@@ -11,10 +11,10 @@ import (
 )
 
 type PVZRepo struct {
-	db *db.Database
+	db db.DBops
 }
 
-func NewArticles(database *db.Database) *PVZRepo {
+func NewArticles(database db.DBops) *PVZRepo {
 	return &PVZRepo{db: database}
 }
 
@@ -54,8 +54,8 @@ func (r *PVZRepo) Update(ctx context.Context, point *model.Pickups, id int64) er
 	return err
 }
 
-func (r *PVZRepo) ListAll(ctx context.Context) ([]*repository.PvzDb, error) {
-	var pickups []*repository.PvzDb
+func (r *PVZRepo) ListAll(ctx context.Context) ([]repository.PvzDb, error) {
+	var pickups []repository.PvzDb
 	err := r.db.Select(ctx, &pickups, "SELECT id, name, address, contact FROM pickpoints")
 	if err != nil {
 		return nil, err

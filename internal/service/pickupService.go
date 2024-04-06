@@ -1,7 +1,9 @@
 package service
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 
 	"pvz_controller/internal/model"
 )
@@ -24,33 +26,32 @@ const finishJob = "Закончил работу"
 
 func (p PickupService) AddPVZ(c chan<- string) {
 	c <- startJob
+	defer func() {
+		c <- finishJob
+	}()
 	var pvz model.Pickups
+	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Println("Введите данные о ПВЗ:")
 	fmt.Print("Имя: ")
-	_, err := fmt.Scanln(&pvz.Name)
-	if err != nil {
-		fmt.Println("Ошбика при чтении")
-		return
-	}
+	//_, err := fmt.Scanln(&pvz.Name)
+	//if err != nil {
+	//	fmt.Println("Ошбика при чтении")
+	//	return
+	//}
+	scanner.Scan()
+	pvz.Name = scanner.Text()
 	fmt.Print("Адрес: ")
-	_, err = fmt.Scanln(&pvz.Address)
-	if err != nil {
-		fmt.Println("Ошбика при чтении")
-		return
-	}
+	scanner.Scan()
+	pvz.Address = scanner.Text()
 	fmt.Print("Связаться с: ")
-	_, err = fmt.Scanln(&pvz.Contact)
-	if err != nil {
-		fmt.Println("Ошбика при чтении")
-		return
-	}
-
+	scanner.Scan()
+	pvz.Contact = scanner.Text()
 	if err := p.s.WritePVZ(pvz); err != nil {
 		fmt.Println("Ошибка добавления ПВЗ:", err)
 	} else {
 		fmt.Println("ПВЗ успешно добавлен.")
 	}
-	c <- finishJob
+
 }
 
 func (p PickupService) ListPVZ(c chan<- string) {
