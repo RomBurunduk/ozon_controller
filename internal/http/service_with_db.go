@@ -45,23 +45,19 @@ func ServiceWithDb() {
 	}
 }
 
-func createRouter(implementation service.ServerService) *mux.Router {
+func createRouter(implementation service.ServerInterface) *mux.Router {
 	router := mux.NewRouter()
 	router.Use(middlewares.BasicAuthMiddleware())
 	router.Use(middlewares.Logging())
 
-	router.HandleFunc("/pvz", func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodPost:
-			implementation.Create(w, req)
-		case http.MethodGet:
-			implementation.ListAll(w, req)
-		default:
-			fmt.Println("error")
-		}
-	})
+	router.HandleFunc("/pvz", PVZHandler(implementation))
 
-	router.HandleFunc(fmt.Sprintf("/pvz/{%s:[0-9]+}", service.QueryParamKey), func(w http.ResponseWriter, req *http.Request) {
+	router.HandleFunc(fmt.Sprintf("/pvz/{%s:[0-9]+}", service.QueryParamKey), PVZKeyHandler(implementation))
+	return router
+}
+
+func PVZKeyHandler(implementation service.ServerInterface) func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case http.MethodGet:
 			implementation.GetByID(w, req)
@@ -72,6 +68,18 @@ func createRouter(implementation service.ServerService) *mux.Router {
 		default:
 			fmt.Println("error")
 		}
-	})
-	return router
+	}
+}
+
+func PVZHandler(implementation service.ServerInterface) func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		switch req.Method {
+		case http.MethodPost:
+			implementation.Create(w, req)
+		case http.MethodGet:
+			implementation.ListAll(w, req)
+		default:
+			fmt.Println("error")
+		}
+	}
 }

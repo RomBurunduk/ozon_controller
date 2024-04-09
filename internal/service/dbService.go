@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,12 +13,9 @@ import (
 
 	"pvz_controller/internal/model"
 	"pvz_controller/internal/pkg/repository"
-	"pvz_controller/internal/pkg/repository/postgresql"
 )
 
-const QueryParamKey = "key"
-
-type ServerService interface {
+type ServerInterface interface {
 	Create(w http.ResponseWriter, req *http.Request)
 	GetByID(w http.ResponseWriter, req *http.Request)
 	DeleteById(w http.ResponseWriter, req *http.Request)
@@ -25,9 +23,7 @@ type ServerService interface {
 	ListAll(w http.ResponseWriter, req *http.Request)
 }
 
-type serverService struct {
-	repo postgresql.PVZRepo
-}
+const QueryParamKey = "key"
 
 type addPvzRequest struct {
 	Name    string `json:"name"`
@@ -42,11 +38,15 @@ type addPvzResponse struct {
 	Contact string `json:"contact"`
 }
 
-func NewServerService(repo *postgresql.PVZRepo) ServerService {
-	return &serverService{repo: *repo}
+func NewServerService(repo repository.PVZRepo) ServerInterface {
+	return &ServerService{Repo: repo}
 }
 
-func (s *serverService) Create(w http.ResponseWriter, req *http.Request) {
+type ServerService struct {
+	Repo repository.PVZRepo
+}
+
+func (s *ServerService) Create(w http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -63,13 +63,13 @@ func (s *serverService) Create(w http.ResponseWriter, req *http.Request) {
 		Address: unm.Address,
 		Contact: unm.Contact,
 	}
-	id, err := s.repo.Add(req.Context(), PvzRepo)
+	id, err := s.Repo.Add(req.Context(), PvzRepo)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	resp := &addPvzResponse{
+	resp := addPvzResponse{
 		Id:      id,
 		Name:    PvzRepo.Name,
 		Address: PvzRepo.Address,
@@ -83,7 +83,7 @@ func (s *serverService) Create(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *serverService) GetByID(w http.ResponseWriter, req *http.Request) {
+func (s *ServerService) GetByID(w http.ResponseWriter, req *http.Request) {
 	key, ok := mux.Vars(req)[QueryParamKey]
 	if !ok {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -95,24 +95,29 @@ func (s *serverService) GetByID(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	pvz, err := s.repo.GetByID(req.Context(), keyInt)
-	if err != nil {
-		if errors.Is(err, repository.ErrObjectNotFound) {
-			http.Error(w, "Not Found", http.StatusNotFound)
-			return
-		}
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	articleJson, _ := json.Marshal(pvz)
+	articleJson, status := s.get(req.Context(), keyInt)
 	_, err = w.Write(articleJson)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(status)
 }
 
-func (s *serverService) DeleteById(w http.ResponseWriter, req *http.Request) {
+func (s *ServerService) get(ctx context.Context, keyInt int64) ([]byte, int) {
+	article, err := s.Repo.GetByID(ctx, keyInt)
+	if err != nil {
+		if errors.Is(err, repository.ErrObjectNotFound) {
+			return nil, http.StatusNotFound
+		}
+		return nil, http.StatusInternalServerError
+	}
+	articleJson, _ := json.Marshal(article)
+
+	return articleJson, http.StatusOK
+}
+
+func (s *ServerService) DeleteById(w http.ResponseWriter, req *http.Request) {
 	key, ok := mux.Vars(req)[QueryParamKey]
 	if !ok {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -123,23 +128,27 @@ func (s *serverService) DeleteById(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
-	err = s.repo.DeleteByID(req.Context(), keyInt)
-	if err != nil {
-		if errors.Is(err, repository.ErrObjectNotFound) {
-			http.Error(w, "Not Found", http.StatusNotFound)
-			return
-		}
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	err, status := s.delete(req.Context(), keyInt)
 	_, err = w.Write([]byte("success"))
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(status)
 }
 
-func (s *serverService) Update(w http.ResponseWriter, req *http.Request) {
+func (s *ServerService) delete(ctx context.Context, keyInt int64) (error, int) {
+	err := s.Repo.DeleteByID(ctx, keyInt)
+	if err != nil {
+		if errors.Is(err, repository.ErrObjectNotFound) {
+			return nil, http.StatusNotFound
+		}
+		return nil, http.StatusInternalServerError
+	}
+	return err, http.StatusOK
+}
+
+func (s *ServerService) Update(w http.ResponseWriter, req *http.Request) {
 	key, ok := mux.Vars(req)[QueryParamKey]
 	if !ok {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -157,9 +166,7 @@ func (s *serverService) Update(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var unm addPvzRequest
-	if err = json.Unmarshal(body, &unm); err != nil {
-		fmt.Println(err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	if err := json.Unmarshal(body, &unm); err != nil {
 		return
 	}
 	PvzRepo := &model.Pickups{
@@ -167,32 +174,41 @@ func (s *serverService) Update(w http.ResponseWriter, req *http.Request) {
 		Address: unm.Address,
 		Contact: unm.Contact,
 	}
-	err = s.repo.Update(req.Context(), PvzRepo, keyInt)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	err, status := s.update(req.Context(), *PvzRepo, keyInt)
 	_, err = w.Write([]byte("success"))
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(status)
 }
 
-func (s *serverService) ListAll(w http.ResponseWriter, req *http.Request) {
-	all, err := s.repo.ListAll(req.Context())
+func (s *ServerService) update(ctx context.Context, PvzRepo model.Pickups, keyInt int64) (error, int) {
+	err := s.Repo.Update(ctx, &PvzRepo, keyInt)
+	if err != nil {
+		return nil, http.StatusInternalServerError
+	}
+	return err, http.StatusOK
+}
+
+func (s *ServerService) ListAll(w http.ResponseWriter, req *http.Request) {
+	data, status := s.listAll(req.Context())
+	_, err := w.Write(data)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
+	}
+	w.WriteHeader(status)
+}
+
+func (s *ServerService) listAll(ctx context.Context) ([]byte, int) {
+	all, err := s.Repo.ListAll(ctx)
+	if err != nil {
+		return nil, http.StatusInternalServerError
 	}
 	data, err := json.Marshal(all)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return nil, http.StatusInternalServerError
 	}
-	_, err = w.Write(data)
-	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	return data, http.StatusOK
 }

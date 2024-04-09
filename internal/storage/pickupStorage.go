@@ -1,3 +1,4 @@
+//go:generate mockgen -source ./pickupStorage.go -destination=./mocks/pickupStorage.go -package=mock_pickupStorage
 package storage
 
 import (
@@ -79,4 +80,9 @@ func (s *PVZStorage) writeBytes(all []model.Pickups) error {
 		return err
 	}
 	return nil
+}
+
+type DBops interface {
+	WritePVZ(pvz model.Pickups) error
+	ReadPVZ() ([]model.Pickups, error)
 }
