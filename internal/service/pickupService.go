@@ -33,11 +33,6 @@ func (p PickupService) AddPVZ(c chan<- string) {
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Println("Введите данные о ПВЗ:")
 	fmt.Print("Имя: ")
-	//_, err := fmt.Scanln(&pvz.Name)
-	//if err != nil {
-	//	fmt.Println("Ошбика при чтении")
-	//	return
-	//}
 	scanner.Scan()
 	pvz.Name = scanner.Text()
 	fmt.Print("Адрес: ")

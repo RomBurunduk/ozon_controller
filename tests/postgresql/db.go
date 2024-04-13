@@ -14,21 +14,19 @@ type TDB struct {
 }
 
 func NewFromEnv() *TDB {
-	db, err := db.NewDb(context.Background())
+	database, err := db.NewDb(context.Background())
 	if err != nil {
 		panic(err)
 	}
-	return &TDB{DB: db}
+	return &TDB{DB: database}
 }
 
 func (d *TDB) SetUp(t *testing.T, tableName ...string) {
 	t.Helper()
-	//d.DB.BeginTX()
 	d.truncateTable(context.Background(), tableName...)
 }
 
 func (d *TDB) TearDown() {
-	//d.DB.RollBack()
 
 }
 
