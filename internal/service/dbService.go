@@ -49,13 +49,13 @@ type ServerService struct {
 func (s *ServerService) Create(w http.ResponseWriter, req *http.Request) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	var unm addPvzRequest
 	if err = json.Unmarshal(body, &unm); err != nil {
 		fmt.Println(err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	PvzRepo := &model.Pickups{
@@ -65,7 +65,7 @@ func (s *ServerService) Create(w http.ResponseWriter, req *http.Request) {
 	}
 	id, err := s.Repo.Add(req.Context(), PvzRepo)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -78,7 +78,7 @@ func (s *ServerService) Create(w http.ResponseWriter, req *http.Request) {
 	articleJson, _ := json.Marshal(resp)
 	_, err = w.Write(articleJson)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -86,19 +86,19 @@ func (s *ServerService) Create(w http.ResponseWriter, req *http.Request) {
 func (s *ServerService) GetByID(w http.ResponseWriter, req *http.Request) {
 	key, ok := mux.Vars(req)[QueryParamKey]
 	if !ok {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	keyInt, err := strconv.ParseInt(key, 10, 64)
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	articleJson, status := s.get(req.Context(), keyInt)
 	_, err = w.Write(articleJson)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(status)
@@ -120,18 +120,18 @@ func (s *ServerService) get(ctx context.Context, keyInt int64) ([]byte, int) {
 func (s *ServerService) DeleteById(w http.ResponseWriter, req *http.Request) {
 	key, ok := mux.Vars(req)[QueryParamKey]
 	if !ok {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	keyInt, err := strconv.ParseInt(key, 10, 64)
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	err, status := s.delete(req.Context(), keyInt)
 	_, err = w.Write([]byte("success"))
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(status)
@@ -151,18 +151,18 @@ func (s *ServerService) delete(ctx context.Context, keyInt int64) (error, int) {
 func (s *ServerService) Update(w http.ResponseWriter, req *http.Request) {
 	key, ok := mux.Vars(req)[QueryParamKey]
 	if !ok {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	keyInt, err := strconv.ParseInt(key, 10, 64)
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	var unm addPvzRequest
@@ -177,7 +177,7 @@ func (s *ServerService) Update(w http.ResponseWriter, req *http.Request) {
 	err, status := s.update(req.Context(), *PvzRepo, keyInt)
 	_, err = w.Write([]byte("success"))
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(status)
@@ -195,7 +195,7 @@ func (s *ServerService) ListAll(w http.ResponseWriter, req *http.Request) {
 	data, status := s.listAll(req.Context())
 	_, err := w.Write(data)
 	if err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(status)

@@ -2,13 +2,18 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/IBM/sarama"
 	"github.com/gorilla/mux"
 
+	"pvz_controller/internal/app/receiver"
+	"pvz_controller/internal/app/sender"
+	"pvz_controller/internal/infrastructure/kafka"
 	"pvz_controller/internal/pkg/db"
 	"pvz_controller/internal/pkg/middlewares"
 	"pvz_controller/internal/pkg/repository/postgresql"
@@ -39,17 +44,28 @@ func ServiceWithDb() {
 		}
 	}()
 
-	http.Handle("/", createRouter(implementation))
+	http.Handle("/", server.Handler)
 	if err = http.ListenAndServe(os.Getenv("unsecurePort"), nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func createRouter(implementation service.ServerInterface) *mux.Router {
+	brokers := []string{
+		"127.0.0.1:9091",
+		"127.0.0.1:9092",
+		"127.0.0.1:9093",
+	}
+
+	kafkaProducer, err := kafka.NewProducer(brokers)
+	if err != nil {
+		return nil
+	}
+	loggingService := sender.NewService(sender.NewKafkaSender(kafkaProducer, "logging"))
 	router := mux.NewRouter()
 	router.Use(middlewares.BasicAuthMiddleware())
-	router.Use(middlewares.Logging())
-
+	router.Use(middlewares.Logging(loggingService))
+	consume(brokers)
 	router.HandleFunc("/pvz", PVZHandler(implementation))
 
 	router.HandleFunc(fmt.Sprintf("/pvz/{%s:[0-9]+}", service.QueryParamKey), PVZKeyHandler(implementation))
@@ -81,5 +97,33 @@ func PVZHandler(implementation service.ServerInterface) func(w http.ResponseWrit
 		default:
 			fmt.Println("error")
 		}
+	}
+}
+
+func consume(brokers []string) {
+	consumer, err := kafka.NewConsumer(brokers)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	handlers := map[string]receiver.HandleFunc{
+		"logging": func(message *sarama.ConsumerMessage) {
+			lm := sender.LoggingMessage{}
+			err = json.Unmarshal(message.Value, &lm)
+			if err != nil {
+				fmt.Println("Consumer error", err)
+				return
+			}
+			fmt.Println("Received Key: ", string(message.Key), " Value: ", lm)
+		},
+	}
+
+	kafkaService := receiver.NewService(receiver.NewKafkaReceiver(consumer, handlers))
+
+	err = kafkaService.StartConsume("logging")
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 }

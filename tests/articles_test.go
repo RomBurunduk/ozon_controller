@@ -4,7 +4,6 @@ package tests
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,9 +55,4 @@ func TestGetArticle(t *testing.T) {
 		Address: "some",
 		Contact: "some",
 	})
-}
-
-func fillDb(t *testing.T, article *repository.PvzDb) {
-	some := db.DB.ExecQueryRow(context.Background(), `INSERT INTO pickpoints(id,name,address,contact) VALUES ($1,$2,$3,$4);`, article.Id, article.Name, article.Address, article.Contact)
-	fmt.Print(some)
 }

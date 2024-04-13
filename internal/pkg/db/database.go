@@ -1,4 +1,3 @@
-//go:generate mockgen -source ./database.go -destination=./mocks/database.go -package=mock_database
 package db
 
 import (
@@ -14,11 +13,6 @@ type Database struct {
 	cluster *pgxpool.Pool
 }
 
-type PGX interface {
-	DBops
-	BeginTx(ctx context.Context, options *pgx.TxOptions) error
-}
-
 type DBops interface {
 	Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	Exec(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error)
@@ -29,11 +23,6 @@ type DBops interface {
 
 func newDatabase(cluster *pgxpool.Pool) *Database {
 	return &Database{cluster: cluster}
-}
-
-func (db Database) BeginTx(ctx context.Context, options *pgx.TxOptions) error {
-
-	return nil
 }
 
 func (db Database) GetPool(_ context.Context) *pgxpool.Pool {
