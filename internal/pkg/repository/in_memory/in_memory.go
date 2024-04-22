@@ -47,7 +47,7 @@ func NewInMemoryCache() *InMemoryCache {
 
 func (c *InMemoryCache) Set(id repository.PVZDbId, item repository.PvzDb) {
 	c.mxPVZ.RLock()
-	defer c.mxPVZ.Unlock()
+	defer c.mxPVZ.RUnlock()
 	c.PVZ[id] = struct {
 		repository.PvzDb
 		time.Time
