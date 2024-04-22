@@ -167,6 +167,9 @@ func (s *ServerService) DeleteById(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	s.redis.Del(req.Context(), s.reqHash(req))
+
 	err, status := s.delete(req.Context(), keyInt)
 	_, err = w.Write([]byte("success"))
 	if err != nil {
