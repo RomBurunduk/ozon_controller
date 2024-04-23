@@ -8,14 +8,20 @@ import (
 	"pvz_controller/internal/model"
 	"pvz_controller/internal/pkg/db"
 	"pvz_controller/internal/pkg/repository"
+	"pvz_controller/internal/pkg/repository/transaction_manager"
 )
 
 type PVZRepo struct {
 	db db.PGX
+	tx transaction_manager.QueryEngineProvider
 }
 
 func NewArticles(database db.PGX) *PVZRepo {
-	return &PVZRepo{db: database}
+	tx := transaction_manager.NewTransactionManager(database.GetPool(context.TODO()))
+	return &PVZRepo{
+		db: database,
+		tx: tx,
+	}
 }
 
 func (r *PVZRepo) Add(ctx context.Context, point *model.Pickups) (int64, error) {

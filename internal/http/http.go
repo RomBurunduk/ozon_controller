@@ -31,7 +31,7 @@ func ServiceWithDb() {
 	defer database.GetPool(ctx).Close()
 
 	pvzRepo := postgresql.NewArticles(database)
-	implementation := service.NewServerService(pvzRepo)
+	implementation := service.NewServerService(pvzRepo, database.GetPool(ctx))
 
 	server := http.Server{
 		Addr:    os.Getenv("securePort"),
@@ -94,6 +94,8 @@ func PVZHandler(implementation service.ServerInterface) func(w http.ResponseWrit
 			implementation.Create(w, req)
 		case http.MethodGet:
 			implementation.ListAll(w, req)
+		case http.MethodDelete: // предполагается curl на адрес localhost/pvz с указанием массива id в флаге -d
+			implementation.DeleteList(w, req)
 		default:
 			fmt.Println("error")
 		}

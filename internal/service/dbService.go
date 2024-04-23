@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"pvz_controller/internal/model"
 	"pvz_controller/internal/pkg/repository"
 	"pvz_controller/internal/pkg/repository/in_memory"
 	"pvz_controller/internal/pkg/repository/redis"
+	"pvz_controller/internal/pkg/repository/transaction_manager"
 )
 
 type ServerInterface interface {
@@ -24,6 +26,7 @@ type ServerInterface interface {
 	DeleteById(w http.ResponseWriter, req *http.Request)
 	Update(w http.ResponseWriter, req *http.Request)
 	ListAll(w http.ResponseWriter, req *http.Request)
+	DeleteList(w http.ResponseWriter, req *http.Request)
 }
 
 type Redis interface {
@@ -36,6 +39,10 @@ type InMemory interface {
 	Set(id repository.PVZDbId, item repository.PvzDb)
 	Get(id repository.PVZDbId) (repository.PvzDb, error)
 	Delete(id repository.PVZDbId)
+}
+
+type TransactionManager interface {
+	RunSerializable(ctx context.Context, f func(ctxTX context.Context) error) error
 }
 
 const QueryParamKey = "key"
@@ -53,19 +60,22 @@ type addPvzResponse struct {
 	Contact string `json:"contact"`
 }
 
-func NewServerService(repo repository.PVZRepo) ServerInterface {
+func NewServerService(repo repository.PVZRepo, db *pgxpool.Pool) ServerInterface {
 	c := in_memory.NewInMemoryCache()
 	r := redis.NewRedis()
+	tx := transaction_manager.NewTransactionManager(db)
 	return &ServerService{
-		Repo:  repo,
-		cache: c,
-		redis: r}
+		Repo:      repo,
+		cache:     c,
+		redis:     r,
+		txManager: tx}
 }
 
 type ServerService struct {
-	Repo  repository.PVZRepo
-	cache InMemory
-	redis Redis
+	Repo      repository.PVZRepo
+	cache     InMemory
+	redis     Redis
+	txManager TransactionManager
 }
 
 func (s *ServerService) Create(w http.ResponseWriter, req *http.Request) {
@@ -260,6 +270,35 @@ func (s *ServerService) listAll(ctx context.Context) ([]byte, int) {
 		return nil, http.StatusInternalServerError
 	}
 	return data, http.StatusOK
+}
+
+// DeleteList - удаляет массив ПВЗ
+func (s *ServerService) DeleteList(w http.ResponseWriter, req *http.Request) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	var nums []int
+	if err = json.Unmarshal(body, &nums); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = s.txManager.RunSerializable(req.Context(), func(ctx context.Context) error {
+		for _, num := range nums {
+			err = s.Repo.DeleteByID(req.Context(), int64(num))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
+		return
+	}
 }
 
 func (s *ServerService) reqHash(req *http.Request) string {
