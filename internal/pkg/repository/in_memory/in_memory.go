@@ -10,19 +10,19 @@ import (
 )
 
 type InMemoryCache struct {
-	PVZ map[repository.PVZDbId]struct {
-		repository.PvzDb
-		time.Time
-	}
+	PVZ   map[repository.PVZDbId]cachePVZ
 	mxPVZ sync.RWMutex
+}
+
+type cachePVZ struct {
+	v          repository.PvzDb
+	expiration time.Duration
+	createdAt  time.Time
 }
 
 func NewInMemoryCache() *InMemoryCache {
 	cache := &InMemoryCache{
-		PVZ: make(map[repository.PVZDbId]struct {
-			repository.PvzDb
-			time.Time
-		}, 100),
+		PVZ:   make(map[repository.PVZDbId]cachePVZ, 100),
 		mxPVZ: sync.RWMutex{},
 	}
 
@@ -32,12 +32,9 @@ func NewInMemoryCache() *InMemoryCache {
 			select {
 			case <-t.C:
 				now := time.Now()
-				newCache := make(map[repository.PVZDbId]struct {
-					repository.PvzDb
-					time.Time
-				})
+				newCache := make(map[repository.PVZDbId]cachePVZ)
 				for key, v := range cache.PVZ {
-					if v.Time.Sub(now).Hours() <= 12 {
+					if v.createdAt.Sub(now).Hours() <= v.expiration.Hours() {
 						newCache[key] = v
 					}
 				}
@@ -50,13 +47,14 @@ func NewInMemoryCache() *InMemoryCache {
 	return cache
 }
 
-func (c *InMemoryCache) Set(id repository.PVZDbId, item repository.PvzDb) {
+func (c *InMemoryCache) Set(id repository.PVZDbId, item repository.PvzDb, expiration time.Duration) {
 	c.mxPVZ.RLock()
 	defer c.mxPVZ.RUnlock()
-	c.PVZ[id] = struct {
-		repository.PvzDb
-		time.Time
-	}{item, time.Now()}
+	c.PVZ[id] = cachePVZ{
+		v:          item,
+		expiration: expiration,
+		createdAt:  time.Now(),
+	}
 }
 
 func (c *InMemoryCache) Get(id repository.PVZDbId) (repository.PvzDb, error) {
@@ -66,7 +64,7 @@ func (c *InMemoryCache) Get(id repository.PVZDbId) (repository.PvzDb, error) {
 	if !ok {
 		return repository.PvzDb{}, errors.New("cant find item by id")
 	}
-	return item.PvzDb, nil
+	return item.v, nil
 }
 
 func (c *InMemoryCache) Delete(id repository.PVZDbId) {

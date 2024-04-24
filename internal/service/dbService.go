@@ -36,7 +36,7 @@ type Redis interface {
 }
 
 type InMemory interface {
-	Set(id repository.PVZDbId, item repository.PvzDb)
+	Set(id repository.PVZDbId, item repository.PvzDb, expiration time.Duration)
 	Get(id repository.PVZDbId) (repository.PvzDb, error)
 	Delete(id repository.PVZDbId)
 }
@@ -158,7 +158,7 @@ func (s *ServerService) get(ctx context.Context, keyInt int64) ([]byte, int) {
 			}
 			return nil, http.StatusInternalServerError
 		}
-		s.cache.Set(repository.PVZDbId(keyInt), article)
+		s.cache.Set(repository.PVZDbId(keyInt), article, 12*time.Hour)
 		articleJson, _ := json.Marshal(article)
 		return articleJson, http.StatusOK
 	}
@@ -246,7 +246,7 @@ func (s *ServerService) update(ctx context.Context, PvzRepo model.Pickups, keyIn
 		Name:    PvzRepo.Name,
 		Address: PvzRepo.Address,
 		Contact: PvzRepo.Contact,
-	})
+	}, 12*time.Hour)
 	return err, http.StatusOK
 }
 
