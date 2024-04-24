@@ -10,7 +10,7 @@ import (
 )
 
 type TDB struct {
-	DB db.DBops
+	DB db.PGX
 }
 
 func NewFromEnv() *TDB {

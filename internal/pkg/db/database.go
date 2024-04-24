@@ -13,6 +13,15 @@ type Database struct {
 	cluster *pgxpool.Pool
 }
 
+type PGX interface {
+	DBops
+	BeginTx(ctx context.Context) (pgx.Tx, error)
+}
+
+func (db Database) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return db.cluster.Begin(ctx)
+}
+
 type DBops interface {
 	Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	Exec(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error)

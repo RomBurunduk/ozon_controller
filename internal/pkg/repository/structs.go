@@ -6,6 +6,8 @@ import (
 
 var ErrObjectNotFound = errors.New("not found")
 
+type PVZDbId int
+
 type PvzDb struct {
 	Id      int64  `db:"id"`
 	Name    string `db:"name"`
