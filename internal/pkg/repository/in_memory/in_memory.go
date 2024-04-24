@@ -32,11 +32,16 @@ func NewInMemoryCache() *InMemoryCache {
 			select {
 			case <-t.C:
 				now := time.Now()
+				newCache := make(map[repository.PVZDbId]struct {
+					repository.PvzDb
+					time.Time
+				})
 				for key, v := range cache.PVZ {
-					if v.Time.Sub(now).Hours() > 12 {
-						delete(cache.PVZ, key)
+					if v.Time.Sub(now).Hours() <= 12 {
+						newCache[key] = v
 					}
 				}
+				cache.PVZ = newCache
 			default:
 
 			}
