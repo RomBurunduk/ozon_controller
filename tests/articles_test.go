@@ -24,7 +24,7 @@ func TestCreateArticle(t *testing.T) {
 		db.SetUp(t, "pickpoints")
 		defer db.TearDown()
 		// arrange
-		repo := postgresql.NewArticles(db.DB)
+		repo := postgresql.NewPVZRepo(db.DB)
 		//act
 		resp, err := repo.Add(ctx, fixtures.Article().Valid().P())
 		//assert
@@ -41,7 +41,7 @@ func TestGetArticle(t *testing.T) {
 	db.SetUp(t, "pickpoints")
 	defer db.TearDown()
 	// arrange
-	repo := postgresql.NewArticles(db.DB)
+	repo := postgresql.NewPVZRepo(db.DB)
 	respAdd, err := repo.Add(ctx, fixtures.Article().Valid().P())
 	require.NoError(t, err)
 

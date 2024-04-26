@@ -16,7 +16,7 @@ type PVZRepo struct {
 	tx transaction_manager.QueryEngineProvider
 }
 
-func NewArticles(database db.PGX) *PVZRepo {
+func NewPVZRepo(database db.PGX) *PVZRepo {
 	tx := transaction_manager.NewTransactionManager(database.GetPool(context.TODO()))
 	return &PVZRepo{
 		db: database,

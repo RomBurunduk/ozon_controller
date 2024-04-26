@@ -1,4 +1,10 @@
 services:
+  app:
+    build: .
+    ports:
+      - 9094:9094
+      - 9095:9095
+
   postgres:
     image: postgres:13
     environment:
