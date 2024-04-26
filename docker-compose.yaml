@@ -1,9 +1,16 @@
 services:
   app:
+    depends_on:
+      - postgres
     build: .
     ports:
-      - 9094:9094
-      - 9095:9095
+      - 50051:50051
+    environment:
+      - DBNAME=test
+      - HOST=postgres
+      - PASSWORD=test
+      - PORT=5432
+      - USER=test
 
   postgres:
     image: postgres:13
