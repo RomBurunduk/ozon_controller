@@ -5,9 +5,15 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
 	"pvz_controller/internal/model"
 	"pvz_controller/internal/pkg/db"
@@ -42,6 +48,7 @@ func NewServer(repo repository.PVZRepo, db *pgxpool.Pool) *Server {
 }
 
 func (s *Server) CreatePVZ(ctx context.Context, req *pb.CreatePVZRequest) (*pb.CreatePVZResponse, error) {
+	defer customMetric.Add(1)
 	pvz := &model.Pickups{
 		Name:    req.Name,
 		Address: req.Address,
@@ -123,6 +130,19 @@ func (s *Server) DeleteListPVZ(ctx context.Context, req *pb.DeleteListPVZRequest
 	return &pb.DeleteListPVZResponse{Success: true}, nil
 }
 
+var (
+	reg = prometheus.NewRegistry()
+
+	customMetric = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "pvz_custom_metric",
+		Help: "Total number og added PVZ",
+	})
+)
+
+func init() {
+	prometheus.MustRegister(customMetric)
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -131,7 +151,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer()
 
 	database, err := db.NewDb(ctx)
 	if err != nil {
@@ -142,8 +161,24 @@ func main() {
 	pvzRepo := postgresql.NewPVZRepo(database)
 	implementation := NewServer(pvzRepo, database.GetPool(ctx))
 	fmt.Println("Starting server")
-	pb.RegisterPVZServiceServer(s, implementation)
-	if err = s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+
+	grpcMetrics := grpc_prometheus.NewServerMetrics()
+	reg.MustRegister(grpcMetrics)
+	reg.MustRegister(customMetric)
+
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainUnaryInterceptor(
+			grpcMetrics.UnaryServerInterceptor(),
+		),
+		grpc.ChainStreamInterceptor(
+			grpcMetrics.StreamServerInterceptor(),
+		),
+	)
+
+	pb.RegisterPVZServiceServer(grpcServer, implementation)
+	grpcMetrics.InitializeMetrics(grpcServer)
+	go http.ListenAndServe(":9091", promhttp.HandlerFor(reg, promhttp.HandlerOpts{EnableOpenMetrics: true}))
+
+	log.Fatal(grpcServer.Serve(lis))
 }
