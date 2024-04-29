@@ -10,11 +10,14 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
+	"pvz_controller/internal/grpc/utils"
 	"pvz_controller/internal/model"
 	"pvz_controller/internal/pkg/db"
 	"pvz_controller/internal/pkg/pb"
@@ -27,6 +30,7 @@ import (
 )
 
 type Server struct {
+	tracer trace.Tracer
 	pb.UnimplementedPVZServiceServer
 
 	repo repository.PVZRepo
@@ -48,6 +52,8 @@ func NewServer(repo repository.PVZRepo, db *pgxpool.Pool) *Server {
 }
 
 func (s *Server) CreatePVZ(ctx context.Context, req *pb.CreatePVZRequest) (*pb.CreatePVZResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "CreatePVZ")
+	defer span.End()
 	defer customMetric.Add(1)
 	pvz := &model.Pickups{
 		Name:    req.Name,
@@ -66,6 +72,8 @@ func (s *Server) CreatePVZ(ctx context.Context, req *pb.CreatePVZRequest) (*pb.C
 }
 
 func (s *Server) GetPVZ(ctx context.Context, req *pb.GetPVZRequest) (*pb.GetPVZResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "GetPVZ")
+	defer span.End()
 	item, err := s.repo.GetByID(ctx, req.Id)
 	if err != nil {
 		return nil, err
@@ -78,6 +86,8 @@ func (s *Server) GetPVZ(ctx context.Context, req *pb.GetPVZRequest) (*pb.GetPVZR
 }
 
 func (s *Server) DeletePVZ(ctx context.Context, req *pb.DeletePVZRequest) (*pb.DeletePVZResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "DeletePVZ")
+	defer span.End()
 	err := s.repo.DeleteByID(ctx, req.Id)
 	if err != nil {
 		return nil, err
@@ -86,6 +96,8 @@ func (s *Server) DeletePVZ(ctx context.Context, req *pb.DeletePVZRequest) (*pb.D
 }
 
 func (s *Server) UpdatePVZ(ctx context.Context, req *pb.UpdatePVZRequest) (*pb.UpdatePVZResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "UpdatePVZ")
+	defer span.End()
 	err := s.repo.Update(ctx, &model.Pickups{
 		Name:    req.Pvz.Name,
 		Address: req.Pvz.Address,
@@ -98,6 +110,8 @@ func (s *Server) UpdatePVZ(ctx context.Context, req *pb.UpdatePVZRequest) (*pb.U
 }
 
 func (s *Server) ListAllPVZ(ctx context.Context, req *pb.ListAllPVZRequest) (*pb.ListAllPVZResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "ListAllPVZ")
+	defer span.End()
 	all, err := s.repo.ListAll(ctx)
 	if err != nil {
 		return nil, err
@@ -115,6 +129,8 @@ func (s *Server) ListAllPVZ(ctx context.Context, req *pb.ListAllPVZRequest) (*pb
 }
 
 func (s *Server) DeleteListPVZ(ctx context.Context, req *pb.DeleteListPVZRequest) (*pb.DeleteListPVZResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "DeleteListPVZ")
+	defer span.End()
 	err := s.txManager.RunSerializable(ctx, func(ctxTX context.Context) error {
 		for _, id := range req.Ids {
 			err := s.repo.DeleteByID(ctx, id)
@@ -160,6 +176,20 @@ func main() {
 
 	pvzRepo := postgresql.NewPVZRepo(database)
 	implementation := NewServer(pvzRepo, database.GetPool(ctx))
+
+	shutdown, err := utils.InitProvider()
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	defer func() {
+		if err = shutdown(ctx); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	implementation.tracer = otel.Tracer("pvz")
+
 	fmt.Println("Starting server")
 
 	grpcMetrics := grpc_prometheus.NewServerMetrics()
