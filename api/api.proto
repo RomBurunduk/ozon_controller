@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package pvz;
+
+option go_package = "./;pb";
+
+service PVZService {
+  rpc CreatePVZ(CreatePVZRequest) returns (CreatePVZResponse);
+  rpc GetPVZ(GetPVZRequest) returns (GetPVZResponse);
+  rpc UpdatePVZ(UpdatePVZRequest) returns (UpdatePVZResponse);
+  rpc DeletePVZ(DeletePVZRequest) returns (DeletePVZResponse);
+  rpc ListAllPVZ(ListAllPVZRequest) returns (ListAllPVZResponse);
+  rpc DeleteListPVZ(DeleteListPVZRequest) returns (DeleteListPVZResponse);
+}
+
+message PVZ {
+  int64 id = 1;
+  string name = 2;
+  string address = 3;
+  string contact = 4;
+}
+
+message CreatePVZRequest {
+  string name = 1;
+  string address = 2;
+  string contact = 3;
+
+}
+
+message CreatePVZResponse {
+  int32 id = 1;
+  bool success = 2;
+}
+
+message GetPVZRequest {
+  int64 id = 1;
+}
+
+message GetPVZResponse {
+  PVZ pvz = 1;
+}
+
+message UpdatePVZRequest {
+  int64 id = 1;
+  PVZ pvz = 2;
+}
+
+message UpdatePVZResponse {
+  bool success = 1;
+}
+
+message DeletePVZRequest {
+  int64 id = 1;
+}
+
+message DeletePVZResponse {
+  bool success = 1;
+}
+
+message ListAllPVZRequest {}
+
+message ListAllPVZResponse {
+  repeated PVZ pvzs = 1;
+}
+
+message DeleteListPVZRequest {
+  repeated int64 ids = 1;
+}
+
+message DeleteListPVZResponse {
+  bool success = 1;
+}

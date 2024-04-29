@@ -13,6 +13,23 @@ type Database struct {
 	cluster *pgxpool.Pool
 }
 
+type PGX interface {
+	DBops
+	BeginTx(ctx context.Context) (pgx.Tx, error)
+}
+
+func (db Database) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return db.cluster.Begin(ctx)
+}
+
+type DBops interface {
+	Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	Exec(ctx context.Context, query string, args ...interface{}) (pgconn.CommandTag, error)
+	ExecQueryRow(ctx context.Context, query string, args ...interface{}) pgx.Row
+	Get(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	GetPool(_ context.Context) *pgxpool.Pool
+}
+
 func newDatabase(cluster *pgxpool.Pool) *Database {
 	return &Database{cluster: cluster}
 }
